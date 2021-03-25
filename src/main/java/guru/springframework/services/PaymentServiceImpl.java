@@ -19,6 +19,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final StateMachineFactory<PaymentState, PaymentEvent> stateMachineFactory;
+    private final PaymentStateChangeInterceptor paymentStateChangeInterceptor;
 
     @Override
     public Payment createNewPayment(Payment payment) {
@@ -31,7 +32,7 @@ public class PaymentServiceImpl implements PaymentService {
         StateMachine<PaymentState, PaymentEvent> stateMachine = build(paymentId);
         sendEvent(paymentId, stateMachine, PaymentEvent.PRE_AUTHORIZE);
 
-        return null;
+        return stateMachine;
     }
 
     @Override
@@ -39,7 +40,7 @@ public class PaymentServiceImpl implements PaymentService {
         StateMachine<PaymentState, PaymentEvent> stateMachine = build(paymentId);
         sendEvent(paymentId, stateMachine, PaymentEvent.AUTH_APPROVED);
 
-        return null;
+        return stateMachine;
     }
 
     @Override
@@ -47,7 +48,7 @@ public class PaymentServiceImpl implements PaymentService {
         StateMachine<PaymentState, PaymentEvent> stateMachine = build(paymentId);
         sendEvent(paymentId, stateMachine, PaymentEvent.AUTH_DECLINED);
 
-        return null;
+        return stateMachine;
     }
 
     public void sendEvent(Long paymentId, StateMachine<PaymentState, PaymentEvent> stateMachine, PaymentEvent paymentEvent){
@@ -65,6 +66,7 @@ public class PaymentServiceImpl implements PaymentService {
         //set the state machine state to be the state from the databese
         stateMachine.getStateMachineAccessor()
                 .doWithAllRegions(stateMachineAccessor ->{
+                    stateMachineAccessor.addStateMachineInterceptor(paymentStateChangeInterceptor);//wtf, de ficare data cand resetam sm ii adaugam listner/interceptor?
                     stateMachineAccessor.resetStateMachine(new DefaultStateMachineContext<>(payment.getState(), null, null, null));
                 });
         stateMachine.start();
